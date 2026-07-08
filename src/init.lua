@@ -1,6 +1,6 @@
 -- Script Hub Configuration
 local githubUser = "Damian-AFK404"
-local githubRepo = "eee"
+local githubRepo = "scripthub"
 local branch = "main"
 
 -- Generate Base URLs
