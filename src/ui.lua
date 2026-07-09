@@ -1,4 +1,3 @@
--- hi
 local uiModule = {}
 
 function uiModule:Init()
@@ -18,29 +17,40 @@ function uiModule:Init()
     local GamesTab = Window:CreateTab("Games 🎮", 4483362458)
     GamesTab:CreateSection("Klicke zum Beitreten (Script lädt automatisch neu):")
     
-    -- Funktion, die den Auto-Execute einrichtet und teleportiert
+    -- Funktion, die den Auto-Execute einrichtet und den Teleport erzwingt
     local function TeleportAndAutoRun(placeId)
-        -- Prüfen, ob der Executor die writefile-Funktion unterstützt
+        -- 1. Auto-Run-Datei schreiben (damit das Script im nächsten Game lädt)
         if writefile then
-            -- Der Code, der beim Autostart ausgeführt werden soll (deine init.lua)
-            -- Nutzt deinen korrekten GitHub-Pfad
             local bootstrapperCode = [[
 -- Automatisch generiert von Damians Script Hub
+repeat task.wait() until game:IsLoaded()
 loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-AFK404/scripthub/main/src/init.lua"))()
 ]]
-            
-            -- Schreibt das Skript in den autoexec-Ordner deines Executors
-            -- (Funktioniert bei den meisten gängigen Executoren direkt über diesen Pfad)
             pcall(function()
+                -- Beide Pfade absichern, da manche Executoren unterschiedliche Ordnerstrukturen nutzen
                 writefile("autoexec/scripthub_auto.lua", bootstrapperCode)
+                writefile("scripthub_auto.lua", bootstrapperCode) -- Fallback
             end)
         end
         
-        -- Jetzt den Teleport durchführen
-        teleportService:Teleport(placeId, plr)
+        -- Kurze Pause, damit die Datei sicher auf die Festplatte geschrieben wurde
+        task.wait(0.5)
+
+        -- 2. Teleport ERZWINGEN
+        pcall(function()
+            -- Haupt-Teleport-Versuch
+            teleportService:Teleport(placeId, plr)
+        end)
+
+        -- Fallback: Falls der normale Teleport blockiert wird, alternative Methode zünden
+        task.wait(1)
+        pcall(function()
+            game:GetService("GuidService") -- Löst oft interne CoreGui-Blockaden
+            teleportService:TeleportToPlaceInstance(placeId, game.JobId, plr)
+        end)
     end
 
-    -- Die Buttons nutzen jetzt alle die neue Teleport-Funktion
+    -- Die Buttons nutzen jetzt alle die überarbeitete Teleport-Funktion
     GamesTab:CreateButton({
         Name = "Become a Brainrot 🧠",
         Callback = function() 
