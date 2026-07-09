@@ -1,6 +1,6 @@
 local http = game:GetService("HttpService")
 
--- 1. GitHub Configuration done
+-- 1. GitHub Configuration please speed i need this
 local GITHUB_USER = "Damian-AFK404"
 local GITHUB_REPO = "scripthub"
 local BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/"
@@ -44,10 +44,14 @@ pcall(function()
     end
 end)
 
--- 4. Detect and execute the game module
+-- 4. Game Script direkt laden und sofort ausführen
 local placeIdStr = tostring(game.PlaceId)
+
+-- Erstelle zur Sicherheit direkt eine Sektion, damit der Tab NIEMALS leer ist
+FunctionsTab:CreateSection("Game: " .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name)
+
 local listSuccess, gamesListText = pcall(function() 
-    return game:HttpGet(BASE_URL .. "src/gameslist.json") -- Verweist auf den src/ Ordner
+    return game:HttpGet(BASE_URL .. "src/gameslist.json")
 end)
 
 if listSuccess then
@@ -61,33 +65,33 @@ if listSuccess then
         end)
 
         if gameScriptSuccess and gameScriptContent then
+            -- Code säubern, falls unsichtbare Zeichen von GitHub drin sind
+            gameScriptContent = gameScriptContent:gsub("\r", "")
+            
             local runScript, err = loadstring(gameScriptContent)
             if runScript then
-                -- FIX: Sichere Ausführung. Wir prüfen beide Varianten, wie das Skript die Parameter erwartet
+                -- Ausführen und Elemente in den Tab pushen
                 local successRun, runErr = pcall(function()
                     local scriptResult = runScript()
                     if type(scriptResult) == "function" then
                         scriptResult(FunctionsTab, data)
-                    elseif type(runScript) == "function" then
+                    else
                         runScript(FunctionsTab, data)
                     end
                 end)
+                
                 if not successRun then
-                    warn("Script Hub: Error running game script: " .. tostring(runErr))
-                    FunctionsTab:CreateSection("Error running script: " .. tostring(runErr))
+                    FunctionsTab:CreateLabel("Runtime Error: " .. tostring(runErr))
                 end
             else
-                warn("Script Hub: Syntax error in game script: " .. tostring(err))
-                FunctionsTab:CreateSection("Syntax error in game script!")
+                FunctionsTab:CreateLabel("Syntax Error: " .. tostring(err))
             end
         else
-            warn("Script Hub: Failed to fetch game script from " .. gameScriptUrl)
-            FunctionsTab:CreateSection("Could not fetch game script from GitHub.")
+            FunctionsTab:CreateLabel("Could not download: " .. scriptFile)
         end
     else
-        -- Nachricht, wenn das aktuelle Spiel nicht in deiner gameslist.json steht
-        FunctionsTab:CreateSection("No script assigned for PlaceId: " .. placeIdStr)
+        FunctionsTab:CreateLabel("No script assigned for ID: " .. placeIdStr)
     end
 else
-    FunctionsTab:CreateSection("Could not load gameslist.json")
+    FunctionsTab:CreateLabel("Failed to load gameslist.json")
 end
