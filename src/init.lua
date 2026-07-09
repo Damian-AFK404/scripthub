@@ -12,7 +12,7 @@ getgenv().getgitpath = function(subfolder)
     return BASE_URL
 end
 
--- 2. INTELLIGENTES LADEN DER ui.lua (Sucht im Hauptordner UND im src-Ordner)
+-- 2. INTELLIGENTES LADEN DER ui.lua (Sucht im Hauptordner UND im src-Ordner) 1
 local uiScript = nil
 local pathsToTry = {
     BASE_URL .. "ui.lua",         -- Pfad 1: Hauptverzeichnis
