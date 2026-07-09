@@ -1,6 +1,6 @@
 local http = game:GetService("HttpService")
 
--- 1. GitHub Configuration please speed i need this
+-- 1. GitHub Configuration maybe done
 local GITHUB_USER = "Damian-AFK404"
 local GITHUB_REPO = "scripthub"
 local BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/"
@@ -44,10 +44,9 @@ pcall(function()
     end
 end)
 
--- 4. Game Script direkt laden und sofort ausführen
+-- 4. Game Script directly loading
 local placeIdStr = tostring(game.PlaceId)
 
--- Erstelle zur Sicherheit direkt eine Sektion, damit der Tab NIEMALS leer ist
 FunctionsTab:CreateSection("Game: " .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name)
 
 local listSuccess, gamesListText = pcall(function() 
@@ -59,18 +58,17 @@ if listSuccess then
     local scriptFile = gamesList[placeIdStr]
 
     if scriptFile then
-        local gameScriptUrl = BASE_URL .. "games/" .. scriptFile
+        -- FIXED PATH: Points exactly to src/games/ instead of games/
+        local gameScriptUrl = BASE_URL .. "src/games/" .. scriptFile
         local gameScriptSuccess, gameScriptContent = pcall(function()
             return game:HttpGet(gameScriptUrl)
         end)
 
         if gameScriptSuccess and gameScriptContent then
-            -- Code säubern, falls unsichtbare Zeichen von GitHub drin sind
             gameScriptContent = gameScriptContent:gsub("\r", "")
             
             local runScript, err = loadstring(gameScriptContent)
             if runScript then
-                -- Ausführen und Elemente in den Tab pushen
                 local successRun, runErr = pcall(function()
                     local scriptResult = runScript()
                     if type(scriptResult) == "function" then
