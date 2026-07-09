@@ -8,8 +8,8 @@ function uiModule:Init()
     -- Hauptfenster erstellen (Ohne v2, ohne Emojis)
     local Window = Rayfield:CreateWindow({
         Name = "Script Hub",
-        LoadingTitle = "Lade Script Hub...",
-        LoadingSubtitle = "by Damian",
+        LoadingTitle = "Loading Script Hub...",
+        LoadingSubtitle = "by Nyvexz",
         ConfigurationSaving = { Enabled = false }
     })
 
