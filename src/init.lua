@@ -2,7 +2,7 @@ local http = game:GetService("HttpService")
 
 -- 1. Definiere den GitHub-Pfad absolut sauber (OHNE riskante Verkettungen)
 -- ERSETZE 'DEIN_GITHUB_NAME' und 'DEIN_REPO' mit deinen echten GitHub-Daten!
-local GITHUB_USER = "DEIN_GITHUB_NAME"
+local GITHUB_USER = "Damian-AFK404"
 local GITHUB_REPO = "DEIN_REPO"
 local BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/"
 
