@@ -6,7 +6,7 @@ function uiModule:Init()
     local teleportService = game:GetService("TeleportService")
     local http = game:GetService("HttpService")
 
-    -- GitHub Configuration to fetch the games list dynamicallyggg
+    -- GitHub Configuration   p
     local GITHUB_USER = "Damian-AFK404"
     local GITHUB_REPO = "scripthub"
     local BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/"
@@ -46,9 +46,9 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-AFK404/scripth
         end)
     end
 
-    -- DYNAMIC LOADING: Fetch gameslist.json and generate buttons automatically
+    -- FIXED PATH: Looking exactly inside the src/ folder now
     local listSuccess, gamesListText = pcall(function() 
-        return game:HttpGet(BASE_URL .. "gameslist.json") 
+        return game:HttpGet(BASE_URL .. "src/gameslist.json") 
     end)
 
     if listSuccess then
@@ -59,7 +59,7 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-AFK404/scripth
         if successDecode and type(gamesList) == "table" then
             -- Loop through every entry inside your gameslist.json
             for placeIdStr, scriptFileName in pairs(gamesList) do
-                -- Cleans up the filename to make a nice display name (e.g., "paperplane.lua" -> "paperplane")
+                -- Cleans up the filename to make a nice display name (e.g., "paperplane.lua" -> "Paperplane")
                 local displayName = scriptFileName:gsub("%.lua$", ""):gsub("^%l", string.upper)
                 
                 GamesTab:CreateButton({
