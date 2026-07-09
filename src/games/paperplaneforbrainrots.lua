@@ -12,9 +12,10 @@ return function(TargetTab, data)
     if not data[placeIdStr] then data[placeIdStr] = { farming = false, strength = false } end
     local setdata = data[placeIdStr]
 
+    -- Explicitly create features section under the target tab
     TargetTab:CreateSection("Paper Plane Features")
 
-    -- TOGGLE: Auto Farm BEST Brainrots gyat
+    -- TOGGLE: Auto Farm BEST Brainrots
     TargetTab:CreateToggle({
         Name = "Auto Farm BEST Brainrots",
         CurrentValue = setdata.farming,
@@ -64,7 +65,7 @@ return function(TargetTab, data)
         end,
     })
 
-    -- TOGGLE: Auto Farm Strength
+    -- TOGGLE: Auto Farm Strength2
     TargetTab:CreateToggle({
         Name = "Auto Farm Strength",
         CurrentValue = setdata.strength,
