@@ -1,8 +1,17 @@
--- Modernisierte UI & Auto-Best-Brainrot Script
-return function(section_not_used, data)
-    -- Rayfield UI Library laden (Moderne und saubere Oberfläche)
+-- Diese Funktion wird von deinem Haupt-Script-Hub aufgerufen
+return function(HubWindow, data)
+    -- Falls kein HubWindow übergeben wurde, erstellen wir zur Sicherheit ein eigenes
     local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-    
+    local Window = HubWindow or Rayfield:CreateWindow({
+        Name = "Brainrot Police Sub-Menu 🚀",
+        LoadingTitle = "Lade Spiel-Modul...",
+        LoadingSubtitle = "by AI Assistant",
+        ConfigurationSaving = { Enabled = false }
+    })
+
+    -- Erstellt einen eigenen Tab im Haupt-Fenster deines Hubs
+    local MainTab = Window:CreateTab("Paper Plane (Brainrot)", 4483362458)
+
     local env = getgenv()
     local plr = game:GetService("Players").LocalPlayer
     local http = game:GetService("HttpService")
@@ -18,21 +27,8 @@ return function(section_not_used, data)
     data[tostring(game.PlaceId)] = setdata
     writefile("BrainrotPolice/Config.json", http:JSONEncode(data))
 
-    -- UI Fenster erstellen
-    local Window = Rayfield:CreateWindow({
-        Name = "Brainrot Police Hub 🚀",
-        LoadingTitle = "Lade Brainrot Cheats...",
-        LoadingSubtitle = "by AI Assistant",
-        ConfigurationSaving = {
-            Enabled = false
-        }
-    })
-
-    -- Tab für die Funktionen erstellen
-    local MainTab = Window:CreateTab("Main Features", 4483362458) -- Standard Icon ID
-
     ---
-    -- FUNKTION: Farm Brainrots (Optimiert auf das BESTE Brainrot)
+    -- FUNKTION: Farm Brainrots (Das beste Element)
     ---
     MainTab:CreateToggle({
         Name = "Farm BEST Brainrots",
@@ -42,16 +38,13 @@ return function(section_not_used, data)
             env.Farming = v
             if getgenv().setconfig then getgenv().setconfig("farming", v) end
             
-            -- Konfiguration live speichern
             setdata.farming = v
             writefile("BrainrotPolice/Config.json", http:JSONEncode(data))
 
             if not v then return end
 
-            -- Asynchroner Loop, damit die UI nicht einfriert
             task.spawn(function()
                 while env.Farming do
-                    -- Flug anfordern
                     repStorage.SharedModules.Network.RequestPendingFlight:FireServer()
                     task.wait(0.5)
 
@@ -59,7 +52,6 @@ return function(section_not_used, data)
                     local GameCore = require(repStorage.GameCore)
                     local utilCore = require(repStorage.UtilityCore)
 
-                    -- Flug starten
                     local results = repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer({
                         plotIndex = 3,
                         intensity = 1,
@@ -73,12 +65,10 @@ return function(section_not_used, data)
                     })
 
                     if results and results.spawnedBrainrots and #results.spawnedBrainrots > 0 then
-                        -- LOGIK: Finde das beste Brainrot (höchster Wert/Multiplikator)
                         local chosenBrainrot = results.spawnedBrainrots[1]
                         
+                        -- Sucht das wertvollste Brainrot aus der Liste
                         for _, brainrot in ipairs(results.spawnedBrainrots) do
-                            -- Falls das Spiel 'value', 'multiplier' oder 'reward' nutzt, hier vergleichen.
-                            -- Wir nutzen standardmäßig 'value' oder gehen nach der ID (höhere IDs sind oft besser).
                             local currentWorth = brainrot.value or brainrot.multiplier or brainrot.worth or 0
                             local bestWorth = chosenBrainrot.value or chosenBrainrot.multiplier or chosenBrainrot.worth or 0
                             
@@ -87,13 +77,10 @@ return function(section_not_used, data)
                             end
                         end
 
-                        -- Warten bis der Flug vorbei ist
                         task.wait(results.timeInAir + 0.2)
-
-                        -- Das beste ausgewählte Brainrot einsammeln
                         repStorage.SharedModules.Network.ClaimFlight:InvokeServer(chosenBrainrot.uid)
                     else
-                        task.wait(1) -- Fallback, falls der Server nicht antwortet
+                        task.wait(1)
                     end
                 end
             end)
