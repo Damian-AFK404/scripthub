@@ -1,35 +1,44 @@
-local UI = {}
+local uiModule = {}
 
--- Standard-Konfiguration für das UI
-UI.HubName = "Script Hub"
-UI.Theme = "Dark"
+function uiModule:Init()
+    local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+    local plr = game:GetService("Players").LocalPlayer
 
--- Funktion für Benachrichtigungen (Notifications) im Spiel
-function UI:CreateNotification(title, text, duration)
-    duration = duration or 5
+    -- Hauptfenster erstellen
+    local Window = Rayfield:CreateWindow({
+        Name = "Script Hub v2 🌐",
+        LoadingTitle = "Lade Script Hub...",
+        LoadingSubtitle = "by Damian",
+        ConfigurationSaving = { Enabled = false }
+    })
+
+    -- 1. TAB: GAMES (Teleport-Liste)
+    local GamesTab = Window:CreateTab("Games 🎮", 4483362458)
+    GamesTab:CreateSection("Klicke zum Beitreten:")
     
-    local StarterGui = game:GetService("StarterGui")
-    local success, err = pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = tostring(title),
-            Text = tostring(text),
-            Duration = duration
-        })
-    end)
-    
-    if not success then
-        print("[" .. tostring(title) .. "]: " .. tostring(text))
-    end
+    GamesTab:CreateButton({
+        Name = "Become a Brainrot",
+        Callback = function() game:GetService("TeleportService"):Teleport(99255447043899, plr) end,
+    })
+    GamesTab:CreateButton({
+        Name = "Dropper RNG",
+        Callback = function() game:GetService("TeleportService"):Teleport(110947318876182, plr) end,
+    })
+    GamesTab:CreateButton({
+        Name = "Paper Plane Simulator",
+        Callback = function() game:GetService("TeleportService"):Teleport(110373292461174, plr) end,
+    })
+
+    -- 2. TAB: SCRIPTS (Hier landen die Cheats für das jeweilige Spiel)
+    local ScriptsTab = Window:CreateTab("Scripts ⚡", 4483362458)
+
+    -- 3. TAB: CREDITS
+    local CreditsTab = Window:CreateTab("Credits 👤", 4483362458)
+    CreditsTab:CreateSection("Hub Eigentümer: Damian")
+    CreditsTab:CreateLabel("Danke fürs Nutzen von Script Hub!")
+
+    -- Gibt das Fenster und den Tab an die init.lua zurück
+    return Window, ScriptsTab
 end
 
--- Funktion, um das Hauptmenü für den Spieler zu laden
-function UI:LoadMainWindow()
-    print("[Script Hub] Loading UI Main Window...")
-    
-    -- Hier kommt später dein UI-Library-Code rein 
-    -- (z.B. Orion, Rayfield, Kavo oder deine eigene UI)
-    
-    self:CreateNotification(self.HubName, "Interface loaded successfully!", 4)
-end
-
-return UI
+return uiModule
