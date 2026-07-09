@@ -1,6 +1,6 @@
 local http = game:GetService("HttpService")
 
--- 1. GitHub Basis-Einstellungen
+-- 1. Correct GitHub paths for your repository hi
 local GITHUB_USER = "Damian-AFK404"
 local GITHUB_REPO = "scripthub"
 local BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/"
@@ -12,11 +12,11 @@ getgenv().getgitpath = function(subfolder)
     return BASE_URL
 end
 
--- 2. INTELLIGENTES LADEN DER ui.lua (Sucht im Hauptordner UND im src-Ordner) 1
+-- 2. Intelligent loading of ui.lua (Checks root and src folder)
 local uiScript = nil
 local pathsToTry = {
-    BASE_URL .. "ui.lua",         -- Pfad 1: Hauptverzeichnis
-    BASE_URL .. "src/ui.lua"       -- Pfad 2: src-Unterordner
+    BASE_URL .. "ui.lua",
+    BASE_URL .. "src/ui.lua"
 }
 
 for _, path in ipairs(pathsToTry) do
@@ -30,13 +30,13 @@ for _, path in ipairs(pathsToTry) do
 end
 
 if not uiScript then
-    error("Script Hub Fehler: ui.lua konnte nirgendwo auf GitHub gefunden werden! (Prüfe den Dateinamen)")
+    error("Script Hub Error: ui.lua could not be found on GitHub!")
 end
 
 local ui = loadstring(uiScript)()
 local Window, ScriptsTab = ui:Init()
 
--- 3. Config-Daten für die Spiele laden
+-- 3. Load configuration data
 local data = {}
 pcall(function()
     if isfile("BrainrotPolice/Config.json") then
@@ -44,7 +44,7 @@ pcall(function()
     end
 end)
 
--- 4. Spiel automatisch erkennen und aus der gameslist.json laden
+-- 4. Auto-detect game and load the script from the games/ folder
 local placeIdStr = tostring(game.PlaceId)
 local listSuccess, gamesListText = pcall(function() 
     return game:HttpGet(BASE_URL .. "gameslist.json") 
@@ -55,14 +55,16 @@ if listSuccess then
     local scriptFile = gamesList[placeIdStr]
 
     if scriptFile then
+        -- FIX: Added BASE_URL .. "games/" to correctly reach the games folder
         local gameScriptSuccess, gameScript = pcall(function()
             return loadstring(game:HttpGet(BASE_URL .. "games/" .. scriptFile))()
         end)
 
         if gameScriptSuccess and type(gameScript) == "function" then
+            -- Pass the ScriptsTab to the game script so it can build the toggles
             gameScript(ScriptsTab, data)
         else
-            warn("Spiel-Skript '" .. tostring(scriptFile) .. "' konnte nicht geladen werden.")
+            warn("Script Hub: Failed to load game script '" .. tostring(scriptFile) .. "'. Check file name or path.")
         end
     end
 end
