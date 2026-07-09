@@ -12,7 +12,7 @@ function uiModule:Init()
         ConfigurationSaving = { Enabled = false }
     })
 
-    -- 1. TAB: GAMES
+    -- 1. TAB: GAMES2
     local GamesTab = Window:CreateTab("Games", 4483362458)
     GamesTab:CreateSection("Click to join (Script will auto-reload):")
     
@@ -34,7 +34,7 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-AFK404/scripth
         
         task.wait(0.3)
 
-        -- Force Teleport handling
+        -- Force cross-game teleport execution
         pcall(function()
             teleportService:Teleport(numericId, plr)
         end)
@@ -55,8 +55,8 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-AFK404/scripth
         Callback = function() TeleportAndAutoRun(110373292461174) end,
     })
 
-    -- 2. TAB: SCRIPTS
-    local ScriptsTab = Window:CreateTab("Scripts", 4483362458)
+    -- 2. TAB: FUNCTIONS (Renamed from Scripts)
+    local FunctionsTab = Window:CreateTab("Functions", 4483362458)
 
     -- 3. TAB: CREDITS
     local CreditsTab = Window:CreateTab("Credits", 4483362458)
@@ -70,7 +70,7 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-AFK404/scripth
     CreditsTab:CreateLabel("developers: [nyvexz, Killuatrudi]")
     CreditsTab:CreateLabel("helpers: [nyvexz, Killuatrudi]")
 
-    return Window, ScriptsTab
+    return Window, FunctionsTab
 end
 
 return uiModule
