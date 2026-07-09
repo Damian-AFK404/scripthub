@@ -1,7 +1,6 @@
 local http = game:GetService("HttpService")
 
--- 1. Definiere den GitHub-Pfad absolut sauber (OHNE riskante Verkettungen)
--- ERSETZE 'DEIN_GITHUB_NAME' und 'DEIN_REPO' mit deinen echten GitHub-Daten!
+-- 1. GitHub Basis-Einstellungen
 local GITHUB_USER = "Damian-AFK404"
 local GITHUB_REPO = "scripthub"
 local BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/"
@@ -13,13 +12,25 @@ getgenv().getgitpath = function(subfolder)
     return BASE_URL
 end
 
--- 2. Lade das Hauptmenü (ui.lua) direkt über die saubere URL
-local uiSuccess, uiScript = pcall(function()
-    return game:HttpGet(BASE_URL .. "ui.lua")
-end)
+-- 2. INTELLIGENTES LADEN DER ui.lua (Sucht im Hauptordner UND im src-Ordner)
+local uiScript = nil
+local pathsToTry = {
+    BASE_URL .. "ui.lua",         -- Pfad 1: Hauptverzeichnis
+    BASE_URL .. "src/ui.lua"       -- Pfad 2: src-Unterordner
+}
 
-if not uiSuccess then
-    error("Script Hub Fehler: ui.lua konnte nicht von GitHub geladen werden! (Pfad prüfen)")
+for _, path in ipairs(pathsToTry) do
+    local success, content = pcall(function()
+        return game:HttpGet(path)
+    end)
+    if success and content and not content:find("404: Not Found") then
+        uiScript = content
+        break
+    end
+end
+
+if not uiScript then
+    error("Script Hub Fehler: ui.lua konnte nirgendwo auf GitHub gefunden werden! (Prüfe den Dateinamen)")
 end
 
 local ui = loadstring(uiScript)()
@@ -44,18 +55,14 @@ if listSuccess then
     local scriptFile = gamesList[placeIdStr]
 
     if scriptFile then
-        -- Lädt das spezifische Skript aus dem games/ Ordner
         local gameScriptSuccess, gameScript = pcall(function()
             return loadstring(game:HttpGet(BASE_URL .. "games/" .. scriptFile))()
         end)
 
         if gameScriptSuccess and type(gameScript) == "function" then
-            -- Übergibt den ScriptsTab an das Spiel-Skript
             gameScript(ScriptsTab, data)
         else
             warn("Spiel-Skript '" .. tostring(scriptFile) .. "' konnte nicht geladen werden.")
         end
     end
-else
-    warn("gameslist.json konnte nicht von GitHub geladen werden.")
 end
