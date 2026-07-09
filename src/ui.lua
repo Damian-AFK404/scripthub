@@ -4,7 +4,14 @@ function uiModule:Init()
     local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
     local plr = game:GetService("Players").LocalPlayer
     local teleportService = game:GetService("TeleportService")
+    local http = game:GetService("HttpService")
 
+    -- GitHub Configuration to fetch the games list dynamicallyggg
+    local GITHUB_USER = "Damian-AFK404"
+    local GITHUB_REPO = "scripthub"
+    local BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/"
+
+    -- Main Window configuration
     local Window = Rayfield:CreateWindow({
         Name = "Script Hub",
         LoadingTitle = "Loading Script Hub...",
@@ -12,7 +19,7 @@ function uiModule:Init()
         ConfigurationSaving = { Enabled = false }
     })
 
-    -- 1. TAB: GAMES2
+    -- 1. TAB: GAMES
     local GamesTab = Window:CreateTab("Games", 4483362458)
     GamesTab:CreateSection("Click to join (Script will auto-reload):")
     
@@ -34,28 +41,42 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-AFK404/scripth
         
         task.wait(0.3)
 
-        -- Force cross-game teleport execution
         pcall(function()
             teleportService:Teleport(numericId, plr)
         end)
     end
 
-    GamesTab:CreateButton({
-        Name = "Become a Brainrot",
-        Callback = function() TeleportAndAutoRun(99255447043899) end,
-    })
-    
-    GamesTab:CreateButton({
-        Name = "Dropper RNG",
-        Callback = function() TeleportAndAutoRun(110947318876182) end,
-    })
-    
-    GamesTab:CreateButton({
-        Name = "Paper Plane Simulator",
-        Callback = function() TeleportAndAutoRun(110373292461174) end,
-    })
+    -- DYNAMIC LOADING: Fetch gameslist.json and generate buttons automatically
+    local listSuccess, gamesListText = pcall(function() 
+        return game:HttpGet(BASE_URL .. "gameslist.json") 
+    end)
 
-    -- 2. TAB: FUNCTIONS (Renamed from Scripts)
+    if listSuccess then
+        local successDecode, gamesList = pcall(function()
+            return http:JSONDecode(gamesListText)
+        end)
+
+        if successDecode and type(gamesList) == "table" then
+            -- Loop through every entry inside your gameslist.json
+            for placeIdStr, scriptFileName in pairs(gamesList) do
+                -- Cleans up the filename to make a nice display name (e.g., "paperplane.lua" -> "paperplane")
+                local displayName = scriptFileName:gsub("%.lua$", ""):gsub("^%l", string.upper)
+                
+                GamesTab:CreateButton({
+                    Name = displayName,
+                    Callback = function() 
+                        TeleportAndAutoRun(placeIdStr) 
+                    end,
+                })
+            end
+        else
+            GamesTab:CreateLabel("Error: gameslist.json formatting is invalid.")
+        end
+    else
+        GamesTab:CreateLabel("Error: Could not load games list from GitHub.")
+    end
+
+    -- 2. TAB: FUNCTIONS
     local FunctionsTab = Window:CreateTab("Functions", 4483362458)
 
     -- 3. TAB: CREDITS
