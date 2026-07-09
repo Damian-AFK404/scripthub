@@ -1,4 +1,4 @@
--- === SCRIPT HUB V11.0 (BASE RE-ENGINEERED EDITION) ===
+-- === SCRIPT HUB V11.1 (INTEGRATED SINGLE-UI EDITION) ===
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
@@ -25,7 +25,7 @@ local afkConnection = nil
 local myBase = nil
 local ballFarmStartTime = nil
 
--- === ANTI-AFK ENGINE (PREVENTIVE 10-MIN LOOP + EVENT) ===
+-- === ANTI-AFK ENGINE ===
 local function sendAntiAfkSignal()
     pcall(function()
         VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
@@ -108,6 +108,7 @@ MainFrame.BackgroundColor3 = Color3.fromRGB(11, 11, 16)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
+MainFrame.Visible = uiVisible
 MainFrame.Parent = ScreenGui
 
 local MainCorner = Instance.new("UICorner")
@@ -118,30 +119,6 @@ local MainStroke = Instance.new("UIStroke")
 MainStroke.Thickness = 2
 MainStroke.Color = Color3.fromRGB(0, 240, 255)
 MainStroke.Parent = MainFrame
-
-local MobileToggleButton = Instance.new("TextButton")
-MobileToggleButton.Size = UDim2.new(0, 50, 0, 50)
-MobileToggleButton.Position = UDim2.new(1, -65, 0, 15)
-MobileToggleButton.BackgroundColor3 = Color3.fromRGB(14, 14, 22)
-MobileToggleButton.Text = "HUB"
-MobileToggleButton.TextColor3 = Color3.fromRGB(0, 240, 255)
-MobileToggleButton.Font = Enum.Font.GothamBold
-MobileToggleButton.TextSize = 12
-MobileToggleButton.Parent = ScreenGui
-
-local MobileCorner = Instance.new("UICorner")
-MobileCorner.CornerRadius = UDim.new(1, 0)
-MobileCorner.Parent = MobileToggleButton
-
-local MobileStroke = Instance.new("UIStroke")
-MobileStroke.Thickness = 1.5
-MobileStroke.Color = Color3.fromRGB(255, 0, 130)
-MobileStroke.Parent = MobileToggleButton
-
-MobileToggleButton.MouseButton1Click:Connect(function()
-    uiVisible = not uiVisible
-    MainFrame.Visible = uiVisible
-end)
 
 local Header = Instance.new("Frame")
 Header.Size = UDim2.new(1, 0, 0, 50)
@@ -336,7 +313,7 @@ task.spawn(function()
             if target then
                 ignoredBalls[target] = true
                 safeTeleport(target.Position + Vector3.new(0, 3, 0))
-                task.wait(0.5) -- Wieder auf 0.5 Sekunden Cooldown gesetzt für schnelles Farmen
+                task.wait(0.5)
             else
                 ignoredBalls = {}
                 task.wait(0.2)
