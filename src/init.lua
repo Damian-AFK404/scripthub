@@ -1,6 +1,6 @@
 local http = game:GetService("HttpService")
 
--- 1. Correct GitHub paths for your repository hi
+-- 1. GitHub Configuration
 local GITHUB_USER = "Damian-AFK404"
 local GITHUB_REPO = "scripthub"
 local BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/"
@@ -12,7 +12,7 @@ getgenv().getgitpath = function(subfolder)
     return BASE_URL
 end
 
--- 2. Intelligent loading of ui.lua (Checks root and src folder)
+-- 2. Smart load ui.lua
 local uiScript = nil
 local pathsToTry = {
     BASE_URL .. "ui.lua",
@@ -36,7 +36,7 @@ end
 local ui = loadstring(uiScript)()
 local Window, ScriptsTab = ui:Init()
 
--- 3. Load configuration data
+-- 3. Configuration Setup
 local data = {}
 pcall(function()
     if isfile("BrainrotPolice/Config.json") then
@@ -44,7 +44,7 @@ pcall(function()
     end
 end)
 
--- 4. Auto-detect game and load the script from the games/ folder
+-- 4. Detect and execute the game module
 local placeIdStr = tostring(game.PlaceId)
 local listSuccess, gamesListText = pcall(function() 
     return game:HttpGet(BASE_URL .. "gameslist.json") 
@@ -55,16 +55,26 @@ if listSuccess then
     local scriptFile = gamesList[placeIdStr]
 
     if scriptFile then
-        -- FIX: Added BASE_URL .. "games/" to correctly reach the games folder
-        local gameScriptSuccess, gameScript = pcall(function()
-            return loadstring(game:HttpGet(BASE_URL .. "games/" .. scriptFile))()
+        local gameScriptUrl = BASE_URL .. "games/" .. scriptFile
+        local gameScriptSuccess, gameScriptContent = pcall(function()
+            return game:HttpGet(gameScriptUrl)
         end)
 
-        if gameScriptSuccess and type(gameScript) == "function" then
-            -- Pass the ScriptsTab to the game script so it can build the toggles
-            gameScript(ScriptsTab, data)
+        if gameScriptSuccess and gameScriptContent then
+            local runScript, err = loadstring(gameScriptContent)
+            if runScript then
+                -- This executes your game file and passes the Rayfield Tab directly into it!
+                local successRun, runErr = pcall(function()
+                    runScript()(ScriptsTab, data)
+                end)
+                if not successRun then
+                    warn("Script Hub: Error running game script: " .. tostring(runErr))
+                end
+            else
+                warn("Script Hub: Syntax error in game script: " .. tostring(err))
+            end
         else
-            warn("Script Hub: Failed to load game script '" .. tostring(scriptFile) .. "'. Check file name or path.")
+            warn("Script Hub: Failed to fetch game script from " .. gameScriptUrl)
         end
     end
 end
