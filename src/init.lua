@@ -1,6 +1,6 @@
 local http = game:GetService("HttpService")
 
--- 1. GitHub Configuration2
+-- 1. GitHub Configuration done
 local GITHUB_USER = "Damian-AFK404"
 local GITHUB_REPO = "scripthub"
 local BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/"
@@ -47,7 +47,7 @@ end)
 -- 4. Detect and execute the game module
 local placeIdStr = tostring(game.PlaceId)
 local listSuccess, gamesListText = pcall(function() 
-    return game:HttpGet(BASE_URL .. "gameslist.json") 
+    return game:HttpGet(BASE_URL .. "src/gameslist.json") -- Verweist auf den src/ Ordner
 end)
 
 if listSuccess then
@@ -63,21 +63,31 @@ if listSuccess then
         if gameScriptSuccess and gameScriptContent then
             local runScript, err = loadstring(gameScriptContent)
             if runScript then
-                -- This executes your game file and passes the FunctionsTab directly into it!
+                -- FIX: Sichere Ausführung. Wir prüfen beide Varianten, wie das Skript die Parameter erwartet
                 local successRun, runErr = pcall(function()
-                    runScript()(FunctionsTab, data)
+                    local scriptResult = runScript()
+                    if type(scriptResult) == "function" then
+                        scriptResult(FunctionsTab, data)
+                    elseif type(runScript) == "function" then
+                        runScript(FunctionsTab, data)
+                    end
                 end)
                 if not successRun then
                     warn("Script Hub: Error running game script: " .. tostring(runErr))
+                    FunctionsTab:CreateSection("Error running script: " .. tostring(runErr))
                 end
             else
                 warn("Script Hub: Syntax error in game script: " .. tostring(err))
+                FunctionsTab:CreateSection("Syntax error in game script!")
             end
         else
             warn("Script Hub: Failed to fetch game script from " .. gameScriptUrl)
+            FunctionsTab:CreateSection("Could not fetch game script from GitHub.")
         end
     else
-        -- Default message if game is not supported
-        FunctionsTab:CreateSection("No script available for this game.")
+        -- Nachricht, wenn das aktuelle Spiel nicht in deiner gameslist.json steht
+        FunctionsTab:CreateSection("No script assigned for PlaceId: " .. placeIdStr)
     end
+else
+    FunctionsTab:CreateSection("Could not load gameslist.json")
 end
