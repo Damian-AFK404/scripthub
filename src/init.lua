@@ -1,6 +1,6 @@
 local http = game:GetService("HttpService")
 
--- 1. GitHub Configuration
+-- 1. GitHub Configuration2
 local GITHUB_USER = "Damian-AFK404"
 local GITHUB_REPO = "scripthub"
 local BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/"
@@ -34,7 +34,7 @@ if not uiScript then
 end
 
 local ui = loadstring(uiScript)()
-local Window, ScriptsTab = ui:Init()
+local Window, FunctionsTab = ui:Init()
 
 -- 3. Configuration Setup
 local data = {}
@@ -63,9 +63,9 @@ if listSuccess then
         if gameScriptSuccess and gameScriptContent then
             local runScript, err = loadstring(gameScriptContent)
             if runScript then
-                -- This executes your game file and passes the Rayfield Tab directly into it!
+                -- This executes your game file and passes the FunctionsTab directly into it!
                 local successRun, runErr = pcall(function()
-                    runScript()(ScriptsTab, data)
+                    runScript()(FunctionsTab, data)
                 end)
                 if not successRun then
                     warn("Script Hub: Error running game script: " .. tostring(runErr))
@@ -76,5 +76,8 @@ if listSuccess then
         else
             warn("Script Hub: Failed to fetch game script from " .. gameScriptUrl)
         end
+    else
+        -- Default message if game is not supported
+        FunctionsTab:CreateSection("No script available for this game.")
     end
 end
