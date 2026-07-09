@@ -7,7 +7,6 @@ return function(TargetTab, data)
     env.Farming = false
     env.Strength = false
 
-    -- Config absichern
     if type(data) ~= "table" then data = {} end
     local placeIdStr = tostring(game.PlaceId)
     if not data[placeIdStr] then data[placeIdStr] = { farming = false, strength = false } end
@@ -15,7 +14,7 @@ return function(TargetTab, data)
 
     TargetTab:CreateSection("Paper Plane Features")
 
-    -- TOGGLE: Auto Farm BEST Brainrots
+    -- TOGGLE: Auto Farm BEST Brainrots gyat
     TargetTab:CreateToggle({
         Name = "Auto Farm BEST Brainrots",
         CurrentValue = setdata.farming,
@@ -65,7 +64,7 @@ return function(TargetTab, data)
         end,
     })
 
-    -- TOGGLE: Farm Strength
+    -- TOGGLE: Auto Farm Strength
     TargetTab:CreateToggle({
         Name = "Auto Farm Strength",
         CurrentValue = setdata.strength,
