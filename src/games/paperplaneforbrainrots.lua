@@ -1,4 +1,3 @@
--- hi
 return function(TargetTab, data)
     local env = getgenv()
     local plr = game:GetService("Players").LocalPlayer
@@ -32,38 +31,37 @@ return function(TargetTab, data)
                 while env.Farming do
                     -- 1. Pending-Signal an den Server senden
                     repStorage.SharedModules.Network.RequestPendingFlight:FireServer()
-                    task.wait(0.1)
+                    task.wait(0.15)
 
                     local GameCore = require(repStorage.GameCore)
                     local utilCore = require(repStorage.UtilityCore)
 
-                    -- STATS-ZUGRIFF: Exakte Groß-/Kleinschreibung von deinen Screenshots umgesetzt
+                    -- STATS-ZUGRIFF (Echte Werte live holen)
                     local leaderstats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Leaderstats")
                     
-                    -- Holt exakt "Throw Power"
                     local currentStrength = leaderstats and (leaderstats:FindFirstChild("Throw Power") or leaderstats:FindFirstChild("throw power") or leaderstats:FindFirstChild("Strength"))
                     currentStrength = currentStrength and currentStrength.Value or 50000
                     
-                    -- Holt exakt "Floors"
                     local currentFloors = leaderstats and (leaderstats:FindFirstChild("Floors") or leaderstats:FindFirstChild("floors"))
                     currentFloors = currentFloors and currentFloors.Value or 500
 
-                    -- Charakter-Position bestimmen
+                    -- FIX: Deine ECHTE Position live abfragen, damit sich der Landepunkt verändert
                     local myCharacter = plr.Character
-                    local currentPos = Vector3.new(-488, 1465, 22)
+                    local currentPos = Vector3.new(-488, 1465, 22) -- Nur noch als Notfall-Fallback
                     if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") then
                         currentPos = myCharacter.HumanoidRootPart.Position
                     end
                     local visualPos = currentPos + Vector3.new(0, 4, 0)
 
-                    -- Plot-Index ermitteln
-                    local currentPlotIndex = 7
-                    local tycoons = game.Workspace:FindFirstChild("Tycoons") or game.Workspace:FindFirstChild("Plots")
+                    -- FIX: Deinen ECHTEN Plot-Index im Spiel suchen
+                    local currentPlotIndex = 1 -- Standard-Startwert
+                    local tycoons = game.Workspace:FindFirstChild("Tycoons") or game.Workspace:FindFirstChild("Plots") or game.Workspace:FindFirstChild("TycoonFolder")
                     if tycoons then
                         for _, tycoon in ipairs(tycoons:GetChildren()) do
-                            local ownerVal = tycoon:FindFirstChild("Owner")
-                            if ownerVal and (ownerVal.Value == plr or ownerVal.Value == plr.Name) then
-                                currentPlotIndex = tycoon:GetAttribute("PlotIndex") or tonumber(tycoon.Name) or 7
+                            -- Prüft, ob das Grundstück dir gehört
+                            local ownerVal = tycoon:FindFirstChild("Owner") or tycoon:FindFirstChild("Player")
+                            if ownerVal and (ownerVal.Value == plr or ownerVal.Value == plr.Name or tostring(ownerVal.Value) == tostring(plr.UserId)) then
+                                currentPlotIndex = tycoon:GetAttribute("PlotIndex") or tycoon:GetAttribute("Index") or tonumber(tycoon.Name) or 1
                                 break
                             end
                         end
@@ -75,7 +73,7 @@ return function(TargetTab, data)
                     -- 2. Das exakte Daten-Paket schnüren
                     local args = {
                         [1] = {
-                            ["plotIndex"] = currentPlotIndex,
+                            ["plotIndex"] = currentPlotIndex, -- Nutzt jetzt deinen echten Plot
                             ["intensity"] = randomIntensity,
                             ["serverStrength"] = currentStrength,
                             ["player"] = plr,
@@ -83,7 +81,7 @@ return function(TargetTab, data)
                             ["serverFloors"] = currentFloors,
                             ["flightUID"] = utilCore.StringUtility.GenerateUID(),
                             ["startTime"] = GameCore.GetSycnedTime(),
-                            ["startPos"] = currentPos,
+                            ["startPos"] = currentPos, -- Nutzt deine echte Position
                             ["serverPickupTime"] = 30
                         }
                     }
@@ -93,7 +91,7 @@ return function(TargetTab, data)
                         return repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer(unpack(args))
                     end)
 
-                    -- Schnelles Einsammeln ohne lange Wartezeit
+                    -- Dynamische Wartezeit basierend auf den Server-Rückgabedaten
                     if success and results and results.spawnedBrainrots and #results.spawnedBrainrots > 0 then
                         local chosenBrainrot = results.spawnedBrainrots[1]
                         for _, brainrot in ipairs(results.spawnedBrainrots) do
@@ -102,11 +100,16 @@ return function(TargetTab, data)
                             if currentWorth > bestWorth then chosenBrainrot = brainrot end
                         end
                         
-                        -- Kurzer Sicherheits-Wait, dann sofort einsammeln für maximale Geschwindigkeit
-                        task.wait(0.3)
+                        local dynamicWait = tonumber(results.timeInAir) or 0.5
+                        if dynamicWait > 4 then dynamicWait = 4 end
+                        
+                        task.wait(dynamicWait + 0.1)
+                        
                         pcall(function()
                             repStorage.SharedModules.Network.ClaimFlight:InvokeServer(chosenBrainrot.uid)
                         end)
+                        
+                        task.wait(0.2)
                     else
                         task.wait(0.5)
                     end
