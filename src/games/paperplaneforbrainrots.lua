@@ -1,3 +1,4 @@
+-- hi
 return function(TargetTab, data)
     local env = getgenv()
     local plr = game:GetService("Players").LocalPlayer
@@ -36,9 +37,12 @@ return function(TargetTab, data)
                     local GameCore = require(repStorage.GameCore)
                     local utilCore = require(repStorage.UtilityCore)
 
+                    -- ZUFALLS-LOGIK: Generiert eine unvorhersehbare Zahl zwischen 0.82 und ~0.98
+                    local randomIntensity = 0.82 + (math.random(0, 160000) / 1000000)
+
                     local results = repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer({
                         plotIndex = 3,
-                        intensity = 1,
+                        intensity = randomIntensity, -- Die manipulierte, sichere Wurfstärke
                         player = plr,
                         flightUID = utilCore.StringUtility.GenerateUID(),
                         serverFloors = 10000000,
@@ -65,7 +69,7 @@ return function(TargetTab, data)
         end,
     })
 
-    -- TOGGLE: Auto Farm Strength2
+    -- TOGGLE: Auto Farm Strength
     TargetTab:CreateToggle({
         Name = "Auto Farm Strength",
         CurrentValue = setdata.strength,
