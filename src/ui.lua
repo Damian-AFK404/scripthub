@@ -6,7 +6,7 @@ function uiModule:Init()
     local teleportService = game:GetService("TeleportService")
     local http = game:GetService("HttpService")
 
-    -- GitHub Configuration pls
+    -- GitHub Configuration 22
     local GITHUB_USER = "Damian-AFK404"
     local GITHUB_REPO = "scripthub"
     local BASE_URL = "https://raw.githubusercontent.com/" .. GITHUB_USER .. "/" .. GITHUB_REPO .. "/main/"
@@ -27,13 +27,12 @@ function uiModule:Init()
         local numericId = tonumber(placeId)
         if not numericId then return end
 
-        -- COMPATIBILITY FIX: Sichert, dass das Skript im nächsten Spiel sofort ausgeführt wird
+        -- 1. Sichert, dass das Skript im nächsten Spiel geladen wird
         local bootstrapperCode = [[
             repeat task.wait() until game:IsLoaded()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-AFK404/scripthub/main/src/init.lua"))()
         ]]
 
-        -- Probiert die verschiedenen Executor-Funktionen für Teleport-Queues aus
         if queue_on_teleport then
             pcall(function() queue_on_teleport(bootstrapperCode) end)
         elseif syn and syn.queue_on_teleport then
@@ -42,7 +41,6 @@ function uiModule:Init()
             pcall(function() fluxus.queue_on_teleport(bootstrapperCode) end)
         end
 
-        -- Backup: Schreibt es zusätzlich in den autoexec Ordner, falls unterstützt
         if writefile then
             pcall(function()
                 writefile("autoexec/scripthub_auto.lua", bootstrapperCode)
@@ -50,11 +48,33 @@ function uiModule:Init()
             end)
         end
         
-        task.wait(0.5)
+        task.wait(0.2)
 
-        -- Führt den eigentlichen Teleport aus
-        pcall(function()
-            teleportService:Teleport(numericId, plr)
+        -- 2. SERVER HOPPER ENGINE: Sucht einen offenen Server über die Roblox API um Error 773 zu umgehen
+        task.spawn(function()
+            local HttpService = game:GetService("HttpService")
+            local url = "https://games.roblox.com/v1/games/" .. tostring(numericId) .. "/servers/Public?sortOrder=Asc&limit=100"
+            local success, result = pcall(function() return game:HttpGet(url) end)
+            
+            if success and result then
+                local data = HttpService:JSONDecode(result)
+                if data and data.data then
+                    -- Gehe die Server-Liste durch und finde einen freien Server
+                    for _, server in ipairs(data.data) do
+                        if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                            pcall(function()
+                                teleportService:TeleportToPlaceInstance(numericId, server.id, plr)
+                            end)
+                            return
+                        end
+                    end
+                end
+            end
+            
+            -- Backup: Falls kein Server gefunden wurde oder HTTP fehlschlägt
+            pcall(function()
+                teleportService:Teleport(numericId, plr)
+            end)
         end)
     end
 
@@ -98,7 +118,7 @@ function uiModule:Init()
     
     CreditsTab:CreateSection("Team")
     CreditsTab:CreateLabel("owner: nyvexz")
-    CreditsTab:CreateLabel("developers: [nyvexz, Killuatrudi]")
+    CreditsTab:CreateLabel("developers: [nyvexz, Vaehz(unoffical hehe)]")
     CreditsTab:CreateLabel("helpers: [nyvexz, Killuatrudi]")
 
     return Window, FunctionsTab
