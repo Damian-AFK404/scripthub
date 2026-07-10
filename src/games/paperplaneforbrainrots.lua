@@ -1,3 +1,4 @@
+-- hi
 return function(TargetTab, data)
     local env = getgenv()
     local plr = game:GetService("Players").LocalPlayer
@@ -29,40 +30,49 @@ return function(TargetTab, data)
 
             task.spawn(function()
                 while env.Farming do
-                    -- 1. Zuerst zwingend das Pending-Signal an den Server senden
+                    -- 1. Pending-Signal an den Server senden
                     repStorage.SharedModules.Network.RequestPendingFlight:FireServer()
-                    task.wait(0.2) -- Kurze Pause, damit der Server das Signal registriert
+                    task.wait(0.1)
 
-                    -- Cores für Berechnungen holen
                     local GameCore = require(repStorage.GameCore)
                     local utilCore = require(repStorage.UtilityCore)
 
-                    -- DYNAMISCHE WERTE: Holt deine echten Daten live aus dem Spiel, statt feste Zahlen zu nutzen
+                    -- STATS-ZUGRIFF: Exakte Groß-/Kleinschreibung von deinen Screenshots umgesetzt
+                    local leaderstats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Leaderstats")
+                    
+                    -- Holt exakt "Throw Power"
+                    local currentStrength = leaderstats and (leaderstats:FindFirstChild("Throw Power") or leaderstats:FindFirstChild("throw power") or leaderstats:FindFirstChild("Strength"))
+                    currentStrength = currentStrength and currentStrength.Value or 50000
+                    
+                    -- Holt exakt "Floors"
+                    local currentFloors = leaderstats and (leaderstats:FindFirstChild("Floors") or leaderstats:FindFirstChild("floors"))
+                    currentFloors = currentFloors and currentFloors.Value or 500
+
+                    -- Charakter-Position bestimmen
                     local myCharacter = plr.Character
-                    local currentPos = myCharacter and myCharacter:GetAttribute("PivotLocation") or Vector3.new(-488, 1465, 22)
-                    local visualPos = currentPos + Vector3.new(-5, 4, 0) -- Leicht versetzt für die Optik
+                    local currentPos = Vector3.new(-488, 1465, 22)
+                    if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") then
+                        currentPos = myCharacter.HumanoidRootPart.Position
+                    end
+                    local visualPos = currentPos + Vector3.new(0, 4, 0)
 
-                    -- Versuche die echten Leaderstats/Upgrades für Stärke und Stockwerke auszulesen
-                    local leaderstats = plr:FindFirstChild("leaderstats")
-                    local currentStrength = leaderstats and leaderstats:FindFirstChild("Strength") and leaderstats.Strength.Value or 3224
-                    local currentFloors = leaderstats and leaderstats:FindFirstChild("Floors") and leaderstats.Floors.Value or 121
-
-                    -- Findet deinen Plot-Index (Grundstücksnummer) dynamisch heraus
+                    -- Plot-Index ermitteln
                     local currentPlotIndex = 7
-                    local tycoons = game.Workspace:FindFirstChild("Tycoons") -- Falls das Spiel so aufgebaut ist
+                    local tycoons = game.Workspace:FindFirstChild("Tycoons") or game.Workspace:FindFirstChild("Plots")
                     if tycoons then
                         for _, tycoon in ipairs(tycoons:GetChildren()) do
-                            if tycoon:FindFirstChild("Owner") and tycoon.Owner.Value == plr then
-                                currentPlotIndex = tycoon:GetAttribute("PlotIndex") or 7
+                            local ownerVal = tycoon:FindFirstChild("Owner")
+                            if ownerVal and (ownerVal.Value == plr or ownerVal.Value == plr.Name) then
+                                currentPlotIndex = tycoon:GetAttribute("PlotIndex") or tonumber(tycoon.Name) or 7
                                 break
                             end
                         end
                     end
 
-                    -- ZUFALLS-LOGIK: Generiert Werte im Bereich deiner gewünschten ~0.82 bis knapp unter 1.0
-                    local randomIntensity = 0.82 + (math.random(0, 160000) / 1000000)
+                    -- Zufällige, sichere Wurfstärke generieren (0.832 - 0.985)
+                    local randomIntensity = 0.832555 + (math.random(0, 150000) / 1000000)
 
-                    -- 2. Das Argumenten-Paket exakt wie im SimpleSpy verschachteln
+                    -- 2. Das exakte Daten-Paket schnüren
                     local args = {
                         [1] = {
                             ["plotIndex"] = currentPlotIndex,
@@ -78,20 +88,27 @@ return function(TargetTab, data)
                         }
                     }
 
-                    -- 3. Den präzisen Flug an den Server übermitteln
-                    local results = repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer(unpack(args))
+                    -- 3. Den Flug ausführen
+                    local success, results = pcall(function()
+                        return repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer(unpack(args))
+                    end)
 
-                    if results and results.spawnedBrainrots and #results.spawnedBrainrots > 0 then
+                    -- Schnelles Einsammeln ohne lange Wartezeit
+                    if success and results and results.spawnedBrainrots and #results.spawnedBrainrots > 0 then
                         local chosenBrainrot = results.spawnedBrainrots[1]
                         for _, brainrot in ipairs(results.spawnedBrainrots) do
                             local currentWorth = brainrot.value or brainrot.multiplier or brainrot.worth or 0
                             local bestWorth = chosenBrainrot.value or chosenBrainrot.multiplier or chosenBrainrot.worth or 0
                             if currentWorth > bestWorth then chosenBrainrot = brainrot end
                         end
-                        task.wait(results.timeInAir + 0.2)
-                        repStorage.SharedModules.Network.ClaimFlight:InvokeServer(chosenBrainrot.uid)
+                        
+                        -- Kurzer Sicherheits-Wait, dann sofort einsammeln für maximale Geschwindigkeit
+                        task.wait(0.3)
+                        pcall(function()
+                            repStorage.SharedModules.Network.ClaimFlight:InvokeServer(chosenBrainrot.uid)
+                        end)
                     else
-                        task.wait(1)
+                        task.wait(0.5)
                     end
                 end
             end)
