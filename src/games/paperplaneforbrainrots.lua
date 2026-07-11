@@ -1,4 +1,3 @@
--- hi
 return function(TargetTab, data)
     local env = getgenv()
     local plr = game:GetService("Players").LocalPlayer
@@ -13,7 +12,6 @@ return function(TargetTab, data)
     if not data[placeIdStr] then data[placeIdStr] = { farming = false, strength = false } end
     local setdata = data[placeIdStr]
 
-    -- Explicitly create features section under the target tab
     TargetTab:CreateSection("Paper Plane Features")
 
     -- TOGGLE: Auto Farm BEST Brainrots
@@ -26,75 +24,67 @@ return function(TargetTab, data)
             setdata.farming = v
             pcall(function() writefile("BrainrotPolice/Config.json", http:JSONEncode(data)) end)
 
+            -- Sofortiges Feedback im Chat, ob der Toggle überhaupt reagiert!
+            game:GetService("StarterGui"):SetCore("ChatMakeSystemMessage", {
+                Text = "[SCRIPT] Auto Farm Status geändert auf: " .. tostring(v),
+                Color = Color3.fromRGB(255, 255, 0)
+            })
+
             if not v then return end
 
             task.spawn(function()
+                print("[START] Die Farming-Schleife läuft jetzt!")
+                
                 while env.Farming do
-                    -- 1. Pending-Signal an den Server senden
+                    print("[SCHRITT 1] Sende RequestPendingFlight...")
                     repStorage.SharedModules.Network.RequestPendingFlight:FireServer()
-                    task.wait(0.2) -- Etwas mehr Zeit für den Server zum Registrieren
+                    task.wait(0.5)
+
+                    -- Fallback-Werte definieren
+                    local currentStrength = 10000000
+                    local currentFloors = 10000000
+
+                    print("[SCHRITT 2] Lese Stats aus...")
+                    local stats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Leaderstats")
+                    if stats then
+                        local strObj = stats:FindFirstChild("Throw Power") or stats:FindFirstChild("throw power") or stats:FindFirstChild("Strength")
+                        local floorObj = stats:FindFirstChild("Floors") or stats:FindFirstChild("floors")
+                        if strObj then currentStrength = strObj.Value end
+                        if floorObj then currentFloors = floorObj.Value end
+                    end
 
                     local GameCore = require(repStorage.GameCore)
+                    local utilCore = require(repStorage.UtilityCore)
+                    local vsp = Vector3.new(-347.2116394043, 89.037544250488, 25.892095565796)
 
-                    -- STATS-ZUGRIFF
-                    local leaderstats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Leaderstats")
+                    print("[SCHRITT 3] Sende Wurf-Invoke an den Server... Power: " .. tostring(currentStrength))
                     
-                    local currentStrength = leaderstats and (leaderstats:FindFirstChild("Throw Power") or leaderstats:FindFirstChild("throw power") or leaderstats:FindFirstChild("Strength"))
-                    currentStrength = currentStrength and currentStrength.Value or 50000
-                    
-                    local currentFloors = leaderstats and (leaderstats:FindFirstChild("Floors") or leaderstats:FindFirstChild("floors"))
-                    currentFloors = currentFloors and currentFloors.Value or 500
-
-                    -- Charakter-Position bestimmen
-                    local myCharacter = plr.Character
-                    local currentPos = Vector3.new(-488, 1465, 22)
-                    if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") then
-                        currentPos = myCharacter.HumanoidRootPart.Position
-                    end
-                    local visualPos = currentPos + Vector3.new(0, 4, 0)
-
-                    -- Plot-Index ermitteln
-                    local currentPlotIndex = 1
-                    local tycoons = game.Workspace:FindFirstChild("Tycoons") or game.Workspace:FindFirstChild("Plots")
-                    if tycoons then
-                        for _, tycoon in ipairs(tycoons:GetChildren()) do
-                            local ownerVal = tycoon:FindFirstChild("Owner")
-                            if ownerVal and (ownerVal.Value == plr or ownerVal.Value == plr.Name) then
-                                currentPlotIndex = tycoon:GetAttribute("PlotIndex") or tonumber(tycoon.Name) or 1
-                                break
-                            end
-                        end
-                    end
-
-                    -- Zufällige Wurfstärke generieren (0.832 - 0.985)
-                    local randomIntensity = 0.832555 + (math.random(0, 150000) / 1000000)
-
-                    -- FIX: Wir generieren eine echte System-GUID und erzwingen Kleinbuchstaben
-                    local secureFlightUID = http:GenerateGUID(false):lower()
-
-                    -- 2. Das exakte Daten-Paket schnüren
-                    local args = {
-                        [1] = {
-                            ["plotIndex"] = currentPlotIndex,
-                            ["intensity"] = randomIntensity,
-                            ["serverStrength"] = currentStrength,
-                            ["player"] = plr,
-                            ["visualStartPos"] = visualPos,
-                            ["serverFloors"] = currentFloors,
-                            ["flightUID"] = secureFlightUID, -- Die echte GUID hier rein
-                            ["startTime"] = GameCore.GetSycnedTime(),
-                            ["startPos"] = currentPos,
-                            ["serverPickupTime"] = 30
-                        }
-                    }
-
-                    -- 3. Den Flug ausführen
                     local success, results = pcall(function()
-                        return repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer(unpack(args))
+                        return repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer({
+                            plotIndex = 3,
+                            intensity = 1,
+                            player = plr,
+                            flightUID = utilCore.StringUtility.GenerateUID(),
+                            serverFloors = currentFloors,
+                            visualStartPos = vsp,
+                            startTime = GameCore.GetSycnedTime(),
+                            startPos = Vector3.new(-347.2116394043, 85.050003051758, 25.892095565796),
+                            serverStrength = currentStrength
+                        })
                     end)
 
-                    -- Belohnung abholen
-                    if success and results and results.spawnedBrainrots and #results.spawnedBrainrots > 0 then
+                    if not success then
+                        warn("[CRITICAL ERROR] Der Invoke selbst ist komplett abgestürzt! Grund:", results)
+                        task.wait(1)
+                    elseif not results then
+                        warn("[SERVER REJECT] Der Server hat NIL geantwortet. Wurf blockiert.")
+                        task.wait(1)
+                    elseif not results.spawnedBrainrots or #results.spawnedBrainrots == 0 then
+                        warn("[SERVER ZERO] Server hat geantwortet, aber 0 Brainrots generiert.")
+                        task.wait(1)
+                    else
+                        print("[ERFOLG] " .. tostring(#results.spawnedBrainrots) .. " Brainrots gefunden! Warte auf Landung: " .. tostring(results.timeInAir) .. "s")
+                        
                         local chosenBrainrot = results.spawnedBrainrots[1]
                         for _, brainrot in ipairs(results.spawnedBrainrots) do
                             local currentWorth = brainrot.value or brainrot.multiplier or brainrot.worth or 0
@@ -102,24 +92,14 @@ return function(TargetTab, data)
                             if currentWorth > bestWorth then chosenBrainrot = brainrot end
                         end
                         
-                        -- Wartezeit basierend auf dem Server-Rückgabewert
-                        local dynamicWait = tonumber(results.timeInAir) or 1
-                        if dynamicWait > 4 then dynamicWait = 4 end
-                        task.wait(dynamicWait + 0.2) -- Puffer hinzugefügt, damit der Flieger sicher gelandet ist
-                        
-                        -- FIX: Wenn das Spiel die UID des gefangenen Objekts will, nutzen wir chosenBrainrot.uid.
-                        -- Falls das fehlschlägt, senden wir als Backup unsere generierte secureFlightUID.
-                        local claimUID = chosenBrainrot.uid or secureFlightUID
-                        
-                        pcall(function()
-                            repStorage.SharedModules.Network.ClaimFlight:InvokeServer(claimUID)
-                        end)
-                        
-                        task.wait(0.3) -- Cooldown für Stabilität
-                    else
-                        task.wait(1) -- Längere Pause, falls der Wurf komplett fehlgeschlagen ist
+                        task.wait(results.timeInAir + 0.2)
+                        print("[CLAIM] Sende Claim für UID: " .. tostring(chosenBrainrot.uid))
+                        repStorage.SharedModules.Network.ClaimFlight:InvokeServer(chosenBrainrot.uid)
                     end
+                    
+                    task.wait(0.5) -- Kleiner Puffer zwischen den Durchgängen
                 end
+                print("[STOP] Die Farming-Schleife wurde beendet.")
             end)
         end,
     })
