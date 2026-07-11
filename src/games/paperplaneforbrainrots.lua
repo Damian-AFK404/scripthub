@@ -1,3 +1,4 @@
+-- hi
 return function(TargetTab, data)
     local env = getgenv()
     local plr = game:GetService("Players").LocalPlayer
@@ -31,12 +32,11 @@ return function(TargetTab, data)
                 while env.Farming do
                     -- 1. Pending-Signal an den Server senden
                     repStorage.SharedModules.Network.RequestPendingFlight:FireServer()
-                    task.wait(0.15)
+                    task.wait(0.2) -- Etwas mehr Zeit für den Server zum Registrieren
 
                     local GameCore = require(repStorage.GameCore)
-                    local utilCore = require(repStorage.UtilityCore)
 
-                    -- STATS-ZUGRIFF (Echte Werte live holen)
+                    -- STATS-ZUGRIFF
                     local leaderstats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Leaderstats")
                     
                     local currentStrength = leaderstats and (leaderstats:FindFirstChild("Throw Power") or leaderstats:FindFirstChild("throw power") or leaderstats:FindFirstChild("Strength"))
@@ -45,43 +45,45 @@ return function(TargetTab, data)
                     local currentFloors = leaderstats and (leaderstats:FindFirstChild("Floors") or leaderstats:FindFirstChild("floors"))
                     currentFloors = currentFloors and currentFloors.Value or 500
 
-                    -- FIX: Deine ECHTE Position live abfragen, damit sich der Landepunkt verändert
+                    -- Charakter-Position bestimmen
                     local myCharacter = plr.Character
-                    local currentPos = Vector3.new(-488, 1465, 22) -- Nur noch als Notfall-Fallback
+                    local currentPos = Vector3.new(-488, 1465, 22)
                     if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") then
                         currentPos = myCharacter.HumanoidRootPart.Position
                     end
                     local visualPos = currentPos + Vector3.new(0, 4, 0)
 
-                    -- FIX: Deinen ECHTEN Plot-Index im Spiel suchen
-                    local currentPlotIndex = 1 -- Standard-Startwert
-                    local tycoons = game.Workspace:FindFirstChild("Tycoons") or game.Workspace:FindFirstChild("Plots") or game.Workspace:FindFirstChild("TycoonFolder")
+                    -- Plot-Index ermitteln
+                    local currentPlotIndex = 1
+                    local tycoons = game.Workspace:FindFirstChild("Tycoons") or game.Workspace:FindFirstChild("Plots")
                     if tycoons then
                         for _, tycoon in ipairs(tycoons:GetChildren()) do
-                            -- Prüft, ob das Grundstück dir gehört
-                            local ownerVal = tycoon:FindFirstChild("Owner") or tycoon:FindFirstChild("Player")
-                            if ownerVal and (ownerVal.Value == plr or ownerVal.Value == plr.Name or tostring(ownerVal.Value) == tostring(plr.UserId)) then
-                                currentPlotIndex = tycoon:GetAttribute("PlotIndex") or tycoon:GetAttribute("Index") or tonumber(tycoon.Name) or 1
+                            local ownerVal = tycoon:FindFirstChild("Owner")
+                            if ownerVal and (ownerVal.Value == plr or ownerVal.Value == plr.Name) then
+                                currentPlotIndex = tycoon:GetAttribute("PlotIndex") or tonumber(tycoon.Name) or 1
                                 break
                             end
                         end
                     end
 
-                    -- Zufällige, sichere Wurfstärke generieren (0.832 - 0.985)
+                    -- Zufällige Wurfstärke generieren (0.832 - 0.985)
                     local randomIntensity = 0.832555 + (math.random(0, 150000) / 1000000)
+
+                    -- FIX: Wir generieren eine echte System-GUID und erzwingen Kleinbuchstaben
+                    local secureFlightUID = http:GenerateGUID(false):lower()
 
                     -- 2. Das exakte Daten-Paket schnüren
                     local args = {
                         [1] = {
-                            ["plotIndex"] = currentPlotIndex, -- Nutzt jetzt deinen echten Plot
+                            ["plotIndex"] = currentPlotIndex,
                             ["intensity"] = randomIntensity,
                             ["serverStrength"] = currentStrength,
                             ["player"] = plr,
                             ["visualStartPos"] = visualPos,
                             ["serverFloors"] = currentFloors,
-                            ["flightUID"] = utilCore.StringUtility.GenerateUID(),
+                            ["flightUID"] = secureFlightUID, -- Die echte GUID hier rein
                             ["startTime"] = GameCore.GetSycnedTime(),
-                            ["startPos"] = currentPos, -- Nutzt deine echte Position
+                            ["startPos"] = currentPos,
                             ["serverPickupTime"] = 30
                         }
                     }
@@ -91,7 +93,7 @@ return function(TargetTab, data)
                         return repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer(unpack(args))
                     end)
 
-                    -- Dynamische Wartezeit basierend auf den Server-Rückgabedaten
+                    -- Belohnung abholen
                     if success and results and results.spawnedBrainrots and #results.spawnedBrainrots > 0 then
                         local chosenBrainrot = results.spawnedBrainrots[1]
                         for _, brainrot in ipairs(results.spawnedBrainrots) do
@@ -100,18 +102,22 @@ return function(TargetTab, data)
                             if currentWorth > bestWorth then chosenBrainrot = brainrot end
                         end
                         
-                        local dynamicWait = tonumber(results.timeInAir) or 0.5
+                        -- Wartezeit basierend auf dem Server-Rückgabewert
+                        local dynamicWait = tonumber(results.timeInAir) or 1
                         if dynamicWait > 4 then dynamicWait = 4 end
+                        task.wait(dynamicWait + 0.2) -- Puffer hinzugefügt, damit der Flieger sicher gelandet ist
                         
-                        task.wait(dynamicWait + 0.1)
+                        -- FIX: Wenn das Spiel die UID des gefangenen Objekts will, nutzen wir chosenBrainrot.uid.
+                        -- Falls das fehlschlägt, senden wir als Backup unsere generierte secureFlightUID.
+                        local claimUID = chosenBrainrot.uid or secureFlightUID
                         
                         pcall(function()
-                            repStorage.SharedModules.Network.ClaimFlight:InvokeServer(chosenBrainrot.uid)
+                            repStorage.SharedModules.Network.ClaimFlight:InvokeServer(claimUID)
                         end)
                         
-                        task.wait(0.2)
+                        task.wait(0.3) -- Cooldown für Stabilität
                     else
-                        task.wait(0.5)
+                        task.wait(1) -- Längere Pause, falls der Wurf komplett fehlgeschlagen ist
                     end
                 end
             end)
