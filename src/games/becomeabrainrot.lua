@@ -1,4 +1,3 @@
--- hi
 return function(TargetTab, data)
     local env = getgenv()
     local plr = game:GetService("Players").LocalPlayer
@@ -30,15 +29,16 @@ return function(TargetTab, data)
 
             task.spawn(function()
                 while env.Farming do
-                    -- 1. Pending-Signal an den Server senden
+                    -- 1. SIGNAL VORBEREITEN: Dem Server sagen, dass wir gleich werfen
                     repStorage.SharedModules.Network.RequestPendingFlight:FireServer()
-                    task.wait(0.15)
+                    task.wait(0.3) -- Erhöht auf 0.3s, um Engine-Overload vor dem Wurf zu verhindern
+
+                    if not env.Farming then break end
 
                     local GameCore = require(repStorage.GameCore)
 
                     -- STATS-ZUGRIFF
                     local leaderstats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Leaderstats")
-                    
                     local currentStrength = leaderstats and (leaderstats:FindFirstChild("Throw Power") or leaderstats:FindFirstChild("throw power") or leaderstats:FindFirstChild("Strength"))
                     currentStrength = currentStrength and currentStrength.Value or 50000
                     
@@ -66,10 +66,8 @@ return function(TargetTab, data)
                         end
                     end
 
-                    -- Zufällige Wurfstärke generieren (0.832 - 0.985)
+                    -- Zufällige, extrem präzise Wurfstärke generieren (0.832 - 0.985)
                     local randomIntensity = 0.832555 + (math.random(0, 150000) / 1000000)
-
-                    -- GUID generieren
                     local secureFlightUID = http:GenerateGUID(false):lower()
 
                     -- 2. Das exakte Daten-Paket schnüren
@@ -88,16 +86,18 @@ return function(TargetTab, data)
                         }
                     }
 
-                    -- 3. Den Flug ausführen
+                    -- 3. WURF BEGRETEN
                     local success, results = pcall(function()
                         return repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer(unpack(args))
                     end)
 
-                    -- RADIKALER FIX: Wir warten nicht mehr darauf, ob "results" existiert!
-                    -- Wir warten eine feste, realistische Flugzeit (z. B. 1.8 Sekunden)
-                    task.wait(1.8)
+                    -- SCHUTZ GEGEN ZU SCHNELLES FEUERN (Punkt 1):
+                    -- Wir geben dem weiten 7k-Flug jetzt statt 1.8 Sekunden volle 3.0 Sekunden Zeit!
+                    task.wait(3.0)
 
-                    -- Wenn der Server uns doch Daten gegeben hat, nehmen wir die echte Objekt-UID
+                    if not env.Farming then break end
+
+                    -- UID ermitteln
                     local targetUID = secureFlightUID
                     if success and results and results.spawnedBrainrots and #results.spawnedBrainrots > 0 then
                         local chosenBrainrot = results.spawnedBrainrots[1]
@@ -109,12 +109,12 @@ return function(TargetTab, data)
                         targetUID = chosenBrainrot.uid or secureFlightUID
                     end
 
-                    -- Der finale Claim-Versuch
+                    -- 4. GEGENSTAND EINRADELN
                     pcall(function()
                         repStorage.SharedModules.Network.ClaimFlight:InvokeServer(targetUID)
                     end)
 
-                    -- Kurze Pause vor dem nächsten Wurf
+                    -- Entlastungspause für das Spiel, um nicht in ein Rate-Limit zu laufen
                     task.wait(0.5)
                 end
             end)
