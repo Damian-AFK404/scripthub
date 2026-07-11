@@ -1,10 +1,8 @@
--- hi
 return function(TargetTab, data)
     local env = getgenv()
     local plr = game:GetService("Players").LocalPlayer
     local http = game:GetService("HttpService")
     local repStorage = game:GetService("ReplicatedStorage")
-    local vim = game:GetService("VirtualInputManager") -- Simuliert echte Klicks
 
     env.Farming = false
     env.Strength = false
@@ -14,9 +12,10 @@ return function(TargetTab, data)
     if not data[placeIdStr] then data[placeIdStr] = { farming = false, strength = false } end
     local setdata = data[placeIdStr]
 
+    -- Explicitly create features section under the target tab
     TargetTab:CreateSection("Paper Plane Features")
 
-    -- TOGGLE: Auto Farm BEST Brainrots (Echte Klick-Simulation)
+    -- TOGGLE: Auto Farm BEST Brainrots
     TargetTab:CreateToggle({
         Name = "Auto Farm BEST Brainrots",
         CurrentValue = setdata.farming,
@@ -30,32 +29,49 @@ return function(TargetTab, data)
 
             task.spawn(function()
                 while env.Farming do
-                    local char = plr.Character
-                    local root = char and char:FindFirstChild("HumanoidRootPart")
-                    if not root then task.wait(0.5) continue end
+                    repStorage.SharedModules.Network.RequestPendingFlight:FireServer()
+                    task.wait(0.5)
 
-                    -- 1. KLICK: Startet das Minigame
-                    -- Simuliert einen Linksklick in der Mitte des Bildschirms
-                    vim:SendMouseButtonEvent(500, 500, 0, true, game, 1)
-                    task.wait(0.05)
-                    vim:SendMouseButtonEvent(500, 500, 0, false, game, 1)
+                    local vsp = Vector3.new(-347.2116394043, 89.037544250488, 25.892095565796)
+                    local GameCore = require(repStorage.GameCore)
+                    local utilCore = require(repStorage.UtilityCore)
 
-                    -- TIMING-PUFFER: Wie lange braucht die Nadel bis zum perfekten Bereich?
-                    -- Falls er zu früh/spät wirft, kannst du die 0.4 hier leicht anpassen (z.B. 0.35 oder 0.5)
-                    task.wait(0.4) 
+                    -- ZWISCHENSCHRITT: Echte Stats live auslesen
+                    local leaderstats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Leaderstats")
+                    
+                    -- Holt deine "Throw Power" live ab. Wenn nicht da, nutzt er 10.000.000 als Fallback
+                    local currentStrength = leaderstats and (leaderstats:FindFirstChild("Throw Power") or leaderstats:FindFirstChild("throw power"))
+                    currentStrength = currentStrength and currentStrength.Value or 10000000
+                    
+                    -- Holt deine "Floors" live ab
+                    local currentFloors = leaderstats and (leaderstats:FindFirstChild("Floors") or leaderstats:FindFirstChild("floors"))
+                    currentFloors = currentFloors and currentFloors.Value or 10000000
 
-                    if not env.Farming then break end
+                    -- Den Invoke genau wie im Original senden, nur mit deinen echten Stats
+                    local results = repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer({
+                        plotIndex = 3,
+                        intensity = 1, -- Simuliert die maximale Power im Wurf-Minigame
+                        player = plr,
+                        flightUID = utilCore.StringUtility.GenerateUID(),
+                        serverFloors = currentFloors,    -- Deine echten Floors eingefügt
+                        visualStartPos = vsp,
+                        startTime = GameCore.GetSycnedTime(),
+                        startPos = Vector3.new(-347.2116394043, 85.050003051758, 25.892095565796),
+                        serverStrength = currentStrength -- Deine echte Power eingefügt
+                    })
 
-                    -- 2. KLICK: Bestätigt den Wurf im perfekten Bereich
-                    vim:SendMouseButtonEvent(500, 500, 0, true, game, 1)
-                    task.wait(0.05)
-                    vim:SendMouseButtonEvent(500, 500, 0, false, game, 1)
-
-                    -- WARTEZEIT FÜR DEN FLUG & AUTOMATISCHES SAMMELN
-                    -- Da das Spiel den Wurf jetzt als komplett echt ansieht, sollte es dich 
-                    -- automatisch belohnen, sobald der Flieger landet. Wir warten einfach,
-                    -- bis der Flug vorbei ist.
-                    task.wait(4.5) 
+                    if results and results.spawnedBrainrots and #results.spawnedBrainrots > 0 then
+                        local chosenBrainrot = results.spawnedBrainrots[1]
+                        for _, brainrot in ipairs(results.spawnedBrainrots) do
+                            local currentWorth = brainrot.value or brainrot.multiplier or brainrot.worth or 0
+                            local bestWorth = chosenBrainrot.value or chosenBrainrot.multiplier or chosenBrainrot.worth or 0
+                            if currentWorth > bestWorth then chosenBrainrot = brainrot end
+                        end
+                        task.wait(results.timeInAir + 0.2)
+                        repStorage.SharedModules.Network.ClaimFlight:InvokeServer(chosenBrainrot.uid)
+                    else
+                        task.wait(1)
+                    end
                 end
             end)
         end,
