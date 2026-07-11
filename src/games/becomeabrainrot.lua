@@ -1,8 +1,10 @@
+-- hi
 return function(TargetTab, data)
     local env = getgenv()
     local plr = game:GetService("Players").LocalPlayer
     local http = game:GetService("HttpService")
     local repStorage = game:GetService("ReplicatedStorage")
+    local vim = game:GetService("VirtualInputManager") -- Simuliert echte Klicks
 
     env.Farming = false
     env.Strength = false
@@ -12,10 +14,9 @@ return function(TargetTab, data)
     if not data[placeIdStr] then data[placeIdStr] = { farming = false, strength = false } end
     local setdata = data[placeIdStr]
 
-    -- Bereich im UI erstellen
     TargetTab:CreateSection("Paper Plane Features")
 
-    -- TOGGLE: Auto Farm BEST Brainrots
+    -- TOGGLE: Auto Farm BEST Brainrots (Echte Klick-Simulation)
     TargetTab:CreateToggle({
         Name = "Auto Farm BEST Brainrots",
         CurrentValue = setdata.farming,
@@ -29,84 +30,32 @@ return function(TargetTab, data)
 
             task.spawn(function()
                 while env.Farming do
-                    -- 1. Das Signal senden, dass ein Wurf vorbereitet wird
-                    repStorage.SharedModules.Network.RequestPendingFlight:FireServer()
-                    task.wait(0.15)
+                    local char = plr.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if not root then task.wait(0.5) continue end
 
-                    local GameCore = require(repStorage.GameCore)
-                    local utilCore = require(repStorage.UtilityCore)
+                    -- 1. KLICK: Startet das Minigame
+                    -- Simuliert einen Linksklick in der Mitte des Bildschirms
+                    vim:SendMouseButtonEvent(500, 500, 0, true, game, 1)
+                    task.wait(0.05)
+                    vim:SendMouseButtonEvent(500, 500, 0, false, game, 1)
 
-                    -- ZWISCHENSCHRITT: Echte Stats sauber auslesen
-                    local leaderstats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Leaderstats")
-                    
-                    -- Holt exakt "Throw Power" (von deinem Screenshot)
-                    local currentStrength = leaderstats and (leaderstats:FindFirstChild("Throw Power") or leaderstats:FindFirstChild("throw power"))
-                    currentStrength = currentStrength and currentStrength.Value or 3224
-                    
-                    -- Holt exakt "Floors" (von deinem Screenshot)
-                    local currentFloors = leaderstats and (leaderstats:FindFirstChild("Floors") or leaderstats:FindFirstChild("floors"))
-                    currentFloors = currentFloors and currentFloors.Value or 121
+                    -- TIMING-PUFFER: Wie lange braucht die Nadel bis zum perfekten Bereich?
+                    -- Falls er zu früh/spät wirft, kannst du die 0.4 hier leicht anpassen (z.B. 0.35 oder 0.5)
+                    task.wait(0.4) 
 
-                    -- Position und Plot-Index ermitteln
-                    local myCharacter = plr.Character
-                    local currentPos = myCharacter and myCharacter:GetAttribute("PivotLocation") or Vector3.new(-488, 1465, 22)
-                    if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") then
-                        currentPos = myCharacter.HumanoidRootPart.Position
-                    end
-                    local visualPos = currentPos + Vector3.new(0, 4, 0)
+                    if not env.Farming then break end
 
-                    local currentPlotIndex = 7
-                    local tycoons = game.Workspace:FindFirstChild("Tycoons") or game.Workspace:FindFirstChild("Plots")
-                    if tycoons then
-                        for _, tycoon in ipairs(tycoons:GetChildren()) do
-                            local ownerVal = tycoon:FindFirstChild("Owner") or tycoon:FindFirstChild("Player")
-                            if ownerVal and (ownerVal.Value == plr or ownerVal.Value == plr.Name) then
-                                currentPlotIndex = tycoon:GetAttribute("PlotIndex") or tycoon:GetAttribute("Index") or tonumber(tycoon.Name) or 7
-                                break
-                            end
-                        end
-                    end
+                    -- 2. KLICK: Bestätigt den Wurf im perfekten Bereich
+                    vim:SendMouseButtonEvent(500, 500, 0, true, game, 1)
+                    task.wait(0.05)
+                    vim:SendMouseButtonEvent(500, 500, 0, false, game, 1)
 
-                    -- Deine Wurf-Intensität (8.325553) perfekt eingebaut
-                    local randomIntensity = 0.832555 + (math.random(0, 10000) / 1000000)
-
-                    -- 2. Das Argumenten-Paket packen (Alte Logik-Struktur)
-                    local args = {
-                        [1] = {
-                            ["plotIndex"] = currentPlotIndex,
-                            ["intensity"] = randomIntensity,
-                            ["serverStrength"] = currentStrength, -- Jetzt mit Throw Power gefüttert!
-                            ["player"] = plr,
-                            ["visualStartPos"] = visualPos,
-                            ["serverFloors"] = currentFloors,    -- Jetzt mit Floors gefüttert!
-                            ["flightUID"] = utilCore.StringUtility.GenerateUID(),
-                            ["startTime"] = GameCore.GetSycnedTime(),
-                            ["startPos"] = currentPos,
-                            ["serverPickupTime"] = 30
-                        }
-                    }
-
-                    -- 3. Wurf ausführen und auf die Server-Antwort warten (Alte Logik)
-                    local results = repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer(unpack(args))
-
-                    -- 4. ALTE LOGIK ZUM SAMMELN: Direkt aus den empfangenen Serverdaten lesen
-                    if results and results.spawnedBrainrots and #results.spawnedBrainrots > 0 then
-                        local chosenBrainrot = results.spawnedBrainrots[1]
-                        for _, brainrot in ipairs(results.spawnedBrainrots) do
-                            local currentWorth = brainrot.value or brainrot.multiplier or brainrot.worth or 0
-                            local bestWorth = chosenBrainrot.value or chosenBrainrot.multiplier or chosenBrainrot.worth or 0
-                            if currentWorth > bestWorth then chosenBrainrot = brainrot end
-                        end
-                        
-                        -- Exakt die vom Server berechnete Flugzeit abwarten, damit die Landung synchron ist
-                        local waitTime = tonumber(results.timeInAir) or 1
-                        task.wait(waitTime + 0.1)
-                        
-                        -- Das gefundene Brainrot über seine echte Server-UID einlösen
-                        repStorage.SharedModules.Network.ClaimFlight:InvokeServer(chosenBrainrot.uid)
-                    else
-                        task.wait(0.5)
-                    end
+                    -- WARTEZEIT FÜR DEN FLUG & AUTOMATISCHES SAMMELN
+                    -- Da das Spiel den Wurf jetzt als komplett echt ansieht, sollte es dich 
+                    -- automatisch belohnen, sobald der Flieger landet. Wir warten einfach,
+                    -- bis der Flug vorbei ist.
+                    task.wait(4.5) 
                 end
             end)
         end,
