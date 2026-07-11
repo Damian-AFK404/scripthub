@@ -1,3 +1,4 @@
+-- hi
 return function(TargetTab, data)
     local env = getgenv()
     local plr = game:GetService("Players").LocalPlayer
@@ -12,10 +13,9 @@ return function(TargetTab, data)
     if not data[placeIdStr] then data[placeIdStr] = { farming = false, strength = false } end
     local setdata = data[placeIdStr]
 
-    -- Explicitly create features section under the target tab
     TargetTab:CreateSection("Paper Plane Features")
 
-    -- TOGGLE: Auto Farm BEST Brainrots
+    -- TOGGLE: Auto Farm BEST Brainrots (Physische Simulation)
     TargetTab:CreateToggle({
         Name = "Auto Farm BEST Brainrots",
         CurrentValue = setdata.farming,
@@ -29,93 +29,69 @@ return function(TargetTab, data)
 
             task.spawn(function()
                 while env.Farming do
-                    -- 1. SIGNAL VORBEREITEN: Dem Server sagen, dass wir gleich werfen
-                    repStorage.SharedModules.Network.RequestPendingFlight:FireServer()
-                    task.wait(0.3) -- Erhöht auf 0.3s, um Engine-Overload vor dem Wurf zu verhindern
+                    local char = plr.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if not root then task.wait(0.5) continue end
 
+                    -- Speicher deine originale Position, um dich später zurückzuteleportieren
+                    local originalPosition = root.CFrame
+
+                    -- 1. ECHTEN WURF TRIGGERN
+                    -- Wir rufen das originale Wurfevent des Spiels auf. Dadurch stimmt die Flugbahn, 
+                    -- die Wurfstärke wird korrekt berechnet und der Server registriert den Flug als 100% echt.
+                    pcall(function()
+                        repStorage.SharedModules.Network.RequestPendingFlight:FireServer()
+                        task.wait(0.1)
+                        -- Wir feuern das originale Aktivierungsevent (Simuliert den Loslass-Klick bei maximaler Power)
+                        repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer({
+                            ["intensity"] = 1.0, -- Erzwingt maximale Power in der Engine
+                            ["player"] = plr
+                        })
+                    end)
+
+                    -- Wartezeit, bis der Flieger landet und die Brainrots in der Welt erscheinen
+                    task.wait(2.5)
                     if not env.Farming then break end
 
-                    local GameCore = require(repStorage.GameCore)
-
-                    -- STATS-ZUGRIFF
-                    local leaderstats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Leaderstats")
-                    local currentStrength = leaderstats and (leaderstats:FindFirstChild("Throw Power") or leaderstats:FindFirstChild("throw power") or leaderstats:FindFirstChild("Strength"))
-                    currentStrength = currentStrength and currentStrength.Value or 50000
+                    -- 2. BRAINROTS IN DER WELT FINDEN & EINSAMMELN
+                    -- Wir suchen direkt im Workspace nach den gespawnten Objekten
+                    local dropsFolder = game.Workspace:FindFirstChild("Drops") or game.Workspace:FindFirstChild("Brainrots") or game.Workspace
                     
-                    local currentFloors = leaderstats and (leaderstats:FindFirstChild("Floors") or leaderstats:FindFirstChild("floors"))
-                    currentFloors = currentFloors and currentFloors.Value or 500
+                    for _, object in ipairs(dropsFolder:GetChildren()) do
+                        -- Wir suchen nach Objekten, die ein ProximityPrompt besitzen
+                        local prompt = object:FindFirstChildWhichIsA("ProximityPrompt", true)
+                        
+                        if prompt then
+                            -- Punkt 3: Magnitude-Check umgehen -> Teleportation direkt zum Objekt
+                            local targetPart = object:IsA("BasePart") and object or object:FindFirstChildWhichIsA("BasePart", true)
+                            if targetPart then
+                                root.CFrame = targetPart.CFrame + Vector3.new(0, 2, 0)
+                                task.wait(0.15) -- Kurzer Stabilitätspuffer nach dem Teleport
+                            end
 
-                    -- Charakter-Position bestimmen
-                    local myCharacter = plr.Character
-                    local currentPos = Vector3.new(-488, 1465, 22)
-                    if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") then
-                        currentPos = myCharacter.HumanoidRootPart.Position
-                    end
-                    local visualPos = currentPos + Vector3.new(0, 4, 0)
-
-                    -- Plot-Index ermitteln
-                    local currentPlotIndex = 1
-                    local tycoons = game.Workspace:FindFirstChild("Tycoons") or game.Workspace:FindFirstChild("Plots")
-                    if tycoons then
-                        for _, tycoon in ipairs(tycoons:GetChildren()) do
-                            local ownerVal = tycoon:FindFirstChild("Owner")
-                            if ownerVal and (ownerVal.Value == plr or ownerVal.Value == plr.Name) then
-                                currentPlotIndex = tycoon:GetAttribute("PlotIndex") or tonumber(tycoon.Name) or 1
-                                break
+                            -- Punkt 2 & 4: Sicherstellen, dass HoldDuration ignoriert wird und der Executor feuert
+                            if fireproximityprompt then
+                                -- Setzt die HoldDuration temporär auf 0, um jeglichen Zeitkonflikt zu killen
+                                local oldHold = prompt.HoldDuration
+                                prompt.HoldDuration = 0
+                                
+                                -- Executor feuert den Prompt
+                                fireproximityprompt(prompt)
+                                task.wait(0.1)
+                                
+                                prompt.HoldDuration = oldHold
+                            else
+                                -- Fallback für normale Interaktion, falls fireproximityprompt nicht existiert
+                                prompt:InputHoldBegin()
+                                task.wait(prompt.HoldDuration + 0.05)
+                                prompt:InputHoldEnd()
                             end
                         end
                     end
 
-                    -- Zufällige, extrem präzise Wurfstärke generieren (0.832 - 0.985)
-                    local randomIntensity = 0.832555 + (math.random(0, 150000) / 1000000)
-                    local secureFlightUID = http:GenerateGUID(false):lower()
-
-                    -- 2. Das exakte Daten-Paket schnüren
-                    local args = {
-                        [1] = {
-                            ["plotIndex"] = currentPlotIndex,
-                            ["intensity"] = randomIntensity,
-                            ["serverStrength"] = currentStrength,
-                            ["player"] = plr,
-                            ["visualStartPos"] = visualPos,
-                            ["serverFloors"] = currentFloors,
-                            ["flightUID"] = secureFlightUID,
-                            ["startTime"] = GameCore.GetSycnedTime(),
-                            ["startPos"] = currentPos,
-                            ["serverPickupTime"] = 30
-                        }
-                    }
-
-                    -- 3. WURF BEGRETEN
-                    local success, results = pcall(function()
-                        return repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer(unpack(args))
-                    end)
-
-                    -- SCHUTZ GEGEN ZU SCHNELLES FEUERN (Punkt 1):
-                    -- Wir geben dem weiten 7k-Flug jetzt statt 1.8 Sekunden volle 3.0 Sekunden Zeit!
-                    task.wait(3.0)
-
-                    if not env.Farming then break end
-
-                    -- UID ermitteln
-                    local targetUID = secureFlightUID
-                    if success and results and results.spawnedBrainrots and #results.spawnedBrainrots > 0 then
-                        local chosenBrainrot = results.spawnedBrainrots[1]
-                        for _, brainrot in ipairs(results.spawnedBrainrots) do
-                            local currentWorth = brainrot.value or brainrot.multiplier or brainrot.worth or 0
-                            local bestWorth = chosenBrainrot.value or chosenBrainrot.multiplier or chosenBrainrot.worth or 0
-                            if currentWorth > bestWorth then chosenBrainrot = brainrot end
-                        end
-                        targetUID = chosenBrainrot.uid or secureFlightUID
-                    end
-
-                    -- 4. GEGENSTAND EINRADELN
-                    pcall(function()
-                        repStorage.SharedModules.Network.ClaimFlight:InvokeServer(targetUID)
-                    end)
-
-                    -- Entlastungspause für das Spiel, um nicht in ein Rate-Limit zu laufen
-                    task.wait(0.5)
+                    -- Zurück zum eigenen Grundstück teleportieren
+                    root.CFrame = originalPosition
+                    task.wait(0.5) -- Entlastungspause gegen Engine-Overload
                 end
             end)
         end,
