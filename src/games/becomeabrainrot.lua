@@ -1,92 +1,146 @@
+-- hi
 return function(TargetTab, data)
-    local Players           = game:GetService("Players")
-    local Workspace         = game:GetService("Workspace")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local http              = game:GetService("HttpService")
-
-    local LocalPlayer = Players.LocalPlayer
-
-    -- Configuration Setup
     local env = getgenv()
-    env.AutoSummon = false
+    local plr = game:GetService("Players").LocalPlayer
+    local http = game:GetService("HttpService")
+    local repStorage = game:GetService("ReplicatedStorage")
+
+    env.Farming = false
+    env.Strength = false
 
     if type(data) ~= "table" then data = {} end
     local placeIdStr = tostring(game.PlaceId)
-    if not data[placeIdStr] then data[placeIdStr] = { autoSummon = false } end
+    if not data[placeIdStr] then data[placeIdStr] = { farming = false, strength = false } end
     local setdata = data[placeIdStr]
 
-    -- Configurations
-    local CONFIG = {
-        SummonCooldown = 1,
-        EndPos         = Vector3.new(46, 6, -1835),
-    }
+    -- Explicitly create features section under the target tab
+    TargetTab:CreateSection("Paper Plane Features")
 
-    -- Notification Helper
-    local function ScriptHubNotify(title, text)
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "[Script Hub] " .. title,
-            Text = text,
-            Duration = 2
-        })
-    end
-
-    -- Teleport Function
-    local function teleportTo(pos, label)
-        local char = LocalPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CFrame = CFrame.new(pos)
-            ScriptHubNotify("Teleport", "Successfully teleported to: " .. label)
-        else
-            ScriptHubNotify("Error", "Character not found!")
-        end
-    end
-
-    -- Summon Function Execution
-    local function fireSummon()
-        local ok = pcall(function()
-            local endLocation = Workspace.Locations:FindFirstChild("End")
-            if endLocation then
-                local args = { [1] = endLocation, n = 1 }
-                ReplicatedStorage.Events.SummonBrainrots:FireServer(unpack(args, 1, args.n or #args))
-            end
-        end)
-        if not ok then
-            ScriptHubNotify("Error", "Summon remote call failed.")
-        end
-    end
-
-    -- Create UI Section
-    TargetTab:CreateSection("Brainrot Features")
-
-    -- TOGGLE: Auto Summon (Replaces the N hotkey loop)
+    -- TOGGLE: Auto Farm BEST Brainrots
     TargetTab:CreateToggle({
-        Name = "Auto Summon Brainrots (1s CD)",
-        CurrentValue = setdata.autoSummon,
-        Flag = "AutoSummonBrainrotsFlag",
+        Name = "Auto Farm BEST Brainrots",
+        CurrentValue = setdata.farming,
+        Flag = "BrainrotFarmFlag",
         Callback = function(v)
-            env.AutoSummon = v
-            setdata.autoSummon = v
+            env.Farming = v
+            setdata.farming = v
             pcall(function() writefile("BrainrotPolice/Config.json", http:JSONEncode(data)) end)
 
             if not v then return end
 
             task.spawn(function()
-                while env.AutoSummon do
-                    fireSummon()
-                    task.wait(CONFIG.SummonCooldown)
+                while env.Farming do
+                    -- 1. Pending-Signal an den Server senden
+                    repStorage.SharedModules.Network.RequestPendingFlight:FireServer()
+                    task.wait(0.15)
+
+                    local GameCore = require(repStorage.GameCore)
+
+                    -- STATS-ZUGRIFF
+                    local leaderstats = plr:FindFirstChild("leaderstats") or plr:FindFirstChild("Leaderstats")
+                    
+                    local currentStrength = leaderstats and (leaderstats:FindFirstChild("Throw Power") or leaderstats:FindFirstChild("throw power") or leaderstats:FindFirstChild("Strength"))
+                    currentStrength = currentStrength and currentStrength.Value or 50000
+                    
+                    local currentFloors = leaderstats and (leaderstats:FindFirstChild("Floors") or leaderstats:FindFirstChild("floors"))
+                    currentFloors = currentFloors and currentFloors.Value or 500
+
+                    -- Charakter-Position bestimmen
+                    local myCharacter = plr.Character
+                    local currentPos = Vector3.new(-488, 1465, 22)
+                    if myCharacter and myCharacter:FindFirstChild("HumanoidRootPart") then
+                        currentPos = myCharacter.HumanoidRootPart.Position
+                    end
+                    local visualPos = currentPos + Vector3.new(0, 4, 0)
+
+                    -- Plot-Index ermitteln
+                    local currentPlotIndex = 1
+                    local tycoons = game.Workspace:FindFirstChild("Tycoons") or game.Workspace:FindFirstChild("Plots")
+                    if tycoons then
+                        for _, tycoon in ipairs(tycoons:GetChildren()) do
+                            local ownerVal = tycoon:FindFirstChild("Owner")
+                            if ownerVal and (ownerVal.Value == plr or ownerVal.Value == plr.Name) then
+                                currentPlotIndex = tycoon:GetAttribute("PlotIndex") or tonumber(tycoon.Name) or 1
+                                break
+                            end
+                        end
+                    end
+
+                    -- Zufällige Wurfstärke generieren (0.832 - 0.985)
+                    local randomIntensity = 0.832555 + (math.random(0, 150000) / 1000000)
+
+                    -- GUID generieren
+                    local secureFlightUID = http:GenerateGUID(false):lower()
+
+                    -- 2. Das exakte Daten-Paket schnüren
+                    local args = {
+                        [1] = {
+                            ["plotIndex"] = currentPlotIndex,
+                            ["intensity"] = randomIntensity,
+                            ["serverStrength"] = currentStrength,
+                            ["player"] = plr,
+                            ["visualStartPos"] = visualPos,
+                            ["serverFloors"] = currentFloors,
+                            ["flightUID"] = secureFlightUID,
+                            ["startTime"] = GameCore.GetSycnedTime(),
+                            ["startPos"] = currentPos,
+                            ["serverPickupTime"] = 30
+                        }
+                    }
+
+                    -- 3. Den Flug ausführen
+                    local success, results = pcall(function()
+                        return repStorage.SharedModules.Network.RequestActiveFlight:InvokeServer(unpack(args))
+                    end)
+
+                    -- RADIKALER FIX: Wir warten nicht mehr darauf, ob "results" existiert!
+                    -- Wir warten eine feste, realistische Flugzeit (z. B. 1.8 Sekunden)
+                    task.wait(1.8)
+
+                    -- Wenn der Server uns doch Daten gegeben hat, nehmen wir die echte Objekt-UID
+                    local targetUID = secureFlightUID
+                    if success and results and results.spawnedBrainrots and #results.spawnedBrainrots > 0 then
+                        local chosenBrainrot = results.spawnedBrainrots[1]
+                        for _, brainrot in ipairs(results.spawnedBrainrots) do
+                            local currentWorth = brainrot.value or brainrot.multiplier or brainrot.worth or 0
+                            local bestWorth = chosenBrainrot.value or chosenBrainrot.multiplier or chosenBrainrot.worth or 0
+                            if currentWorth > bestWorth then chosenBrainrot = brainrot end
+                        end
+                        targetUID = chosenBrainrot.uid or secureFlightUID
+                    end
+
+                    -- Der finale Claim-Versuch
+                    pcall(function()
+                        repStorage.SharedModules.Network.ClaimFlight:InvokeServer(targetUID)
+                    end)
+
+                    -- Kurze Pause vor dem nächsten Wurf
+                    task.wait(0.5)
                 end
             end)
         end,
     })
 
-    -- BUTTON: Teleport to End (Replaces the V hotkey)
-    TargetTab:CreateButton({
-        Name = "Teleport to Finish Line",
-        Callback = function()
-            teleportTo(CONFIG.EndPos, "Finish Line")
+    -- TOGGLE: Auto Farm Strength
+    TargetTab:CreateToggle({
+        Name = "Auto Farm Strength",
+        CurrentValue = setdata.strength,
+        Flag = "StrengthFarmFlag",
+        Callback = function(v)
+            env.Strength = v
+            setdata.strength = v
+            pcall(function() writefile("BrainrotPolice/Config.json", http:JSONEncode(data)) end)
+
+            if not v then return end
+
+            task.spawn(function()
+                while env.Strength do
+                    local net = repStorage.SharedModules.Network
+                    net.RequestStrength:InvokeServer()
+                    net.RequestDoubleStrength:InvokeServer()
+                    task.wait(0.1)
+                end
+            end)
         end,
     })
-
-    ScriptHubNotify("Loaded", "Become a Brainrot functions loaded successfully!")
 end
